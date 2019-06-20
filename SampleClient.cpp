@@ -86,7 +86,6 @@ int main(int argc, char** argv)
 			VString s7("oh jizzzzz");
 			VString s8("HI! IM MR. MISSIS!");
 			VString s9("SQUANTCH");
-			cout << "threads pushing"<<endl;
 			inputVec.push_back({nullptr, &s1});
 			inputVec.push_back({nullptr, &s2});
 			inputVec.push_back({nullptr, &s3});
@@ -98,11 +97,10 @@ int main(int argc, char** argv)
 			inputVec.push_back({nullptr, &s9});
 		}
 		cout << "num of threads: " << inputVec.size() <<endl;
-		cout << "job state init"<<endl;
 		JobState state;
 	    JobState last_state={UNDEFINED_STAGE,0};
 		cout << "call startMapReduceJob"<<endl;
-	    JobHandle job = startMapReduceJob(client, inputVec, outputVec, 150);
+	    JobHandle job = startMapReduceJob(client, inputVec, outputVec, 15);
 		cout << "call getJobState"<<endl;
 	    getJobState(job, &state);
 
@@ -115,7 +113,9 @@ int main(int argc, char** argv)
 	            printf("stage %d, %f%% \n",
 				state.stage, state.percentage);
 	        }
+	        cout << "before sleep" << endl;
 			usleep(100000);
+	        cout << "after sleep" << endl;
 	        last_state = state;
 			getJobState(job, &state);
 		}

@@ -19,25 +19,30 @@ typedef void *JobHandle;
 
 class JobContext;
 
-class ThreadContext {
+class ThreadContext
+{
 public:
     int _id;
     JobContext *_jc;
-    std::vector <IntermediateVec> _threadInters;
+    std::vector<IntermediateVec> _threadInters;
 
-    ThreadContext(int threadID, JobContext *jobContext) {
+    ThreadContext(int threadID, JobContext *jobContext)
+    {
         _id = threadID;
         _jc = jobContext;
         _threadInters = {};
     }
-    void add_inter(){
+
+    void add_inter()
+    {
         _threadInters.emplace_back();
     }
 
     ~ThreadContext() = default;
 };
 
-class JobContext {
+class JobContext
+{
 public:
     const MapReduceClient *_client;
     const InputVec *_inputVec;
@@ -56,13 +61,17 @@ public:
     std::atomic<int> *_done_works_counter;
     bool join_flag;
 
-    JobContext(const MapReduceClient *client, const InputVec *inputVec, OutputVec *outputVec, const int threads_num);
+    JobContext(const MapReduceClient *client, const InputVec *inputVec, OutputVec *outputVec,
+               const int threads_num);
 
-    ~JobContext() {
-        for (auto thr : *_tcs) {
+    ~JobContext()
+    {
+        for (auto thr : *_tcs)
+        {
             delete thr;
         }
-        for (unsigned long i = 1; i < (unsigned long) _threads_num; ++i) {
+        for (unsigned long i = 1; i < (unsigned long) _threads_num; ++i)
+        {
             delete _threads->at(i);
         }
         delete _threads;
@@ -85,8 +94,10 @@ public:
 };
 
 
-JobContext::JobContext(const MapReduceClient *client, const InputVec *inputVec, OutputVec *outputVec,
-                       const int threads_num) {
+JobContext::JobContext(const MapReduceClient *client, const InputVec *inputVec,
+                       OutputVec *outputVec,
+                       const int threads_num)
+{
     _client = client;
     _inputVec = inputVec;
     _outputVec = outputVec;
@@ -102,66 +113,86 @@ JobContext::JobContext(const MapReduceClient *client, const InputVec *inputVec, 
     _tcs = new std::vector<ThreadContext *>((unsigned long) _threads_num);
     _threads = new std::vector<pthread_t *>((unsigned long) _threads_num);
     _jobState = {UNDEFINED_STAGE, 0};
-    for (unsigned long i = 0; i < (unsigned long) threads_num; ++i) {
+    for (unsigned long i = 0; i < (unsigned long) threads_num; ++i)
+    {
         _threads->at(i) = new pthread_t();
     }
 }
 
 
-void emit2(K2 *key, V2 *value, void *context) {
+void emit2(K2 *key, V2 *value, void *context)
+{
     auto threadContext = (ThreadContext *) context;
-    threadContext->_threadInters.at(threadContext->_threadInters.size()-1).push_back({key, value});
+    threadContext->_threadInters.at(threadContext->_threadInters.size() - 1).push_back(
+            {key, value});
 }
 
 
-void emit3(K3 *key, V3 *value, void *context) {
+void emit3(K3 *key, V3 *value, void *context)
+{
     auto jc = (JobContext *) context;
     jc->_outputVec->push_back({key, value});
     (*jc->_done_works_counter)++;
 }
 
-bool sort_by_first(const IntermediatePair &a, const IntermediatePair &b) {
+bool sort_by_first(const IntermediatePair &a, const IntermediatePair &b)
+{
     return (*(a.first)) < (*(b.first));
 }
 
-void thread_sort_phase(ThreadContext *tc) {
-    for (auto &_threadInter : tc->_threadInters) {
+void thread_sort_phase(ThreadContext *tc)
+{
+    for (auto &_threadInter : tc->_threadInters)
+    {
         sort(_threadInter.begin(), _threadInter.end(), sort_by_first);
     }
 }
 
-void shuffle_phase(JobContext *jc) {
+void shuffle_phase(JobContext *jc)
+{
     jc->_jobState.stage = REDUCE_STAGE;
     jc->_jobState.percentage = 0;
     std::vector<IntermediateVec *> threads_vec;
-    for (int i = 0; i < jc->_threads_num; ++i) {
-        for(unsigned int j=0; j < jc->_tcs->at((unsigned long)i)->_threadInters.size(); ++j) {
-            threads_vec.push_back(&jc->_tcs->at((unsigned long) i)->_threadInters.at((unsigned long) j));
+    for (int i = 0; i < jc->_threads_num; ++i)
+    {
+        for (unsigned int j = 0; j < jc->_tcs->at((unsigned long) i)->_threadInters.size(); ++j)
+        {
+            threads_vec.push_back(
+                    &jc->_tcs->at((unsigned long) i)->_threadInters.at((unsigned long) j));
         }
     }
-    while (!threads_vec.empty()) {
+    while (!threads_vec.empty())
+    {
         IntermediateVec firsts = {};
         for (auto iter = threads_vec.begin();
-             iter != threads_vec.end(); ++iter) {
-            if ((*iter)->empty()) {
+             iter != threads_vec.end(); ++iter)
+        {
+            if ((*iter)->empty())
+            {
                 threads_vec.erase(iter);
                 --iter;
-            } else {
+            }
+            else
+            {
                 firsts.push_back((*iter)->at(0));
             }
-            if (iter == threads_vec.end()) {
+            if (iter == threads_vec.end())
+            {
                 break;
             }
         }
-        if (!firsts.empty()) {
+        if (!firsts.empty())
+        {
             sort(firsts.begin(), firsts.end(), sort_by_first);
             K2 *max = firsts.at(0).first;
             IntermediateVec work = {};
             pthread_mutex_lock(&jc->_mutex);
 
-            for (auto inter : threads_vec) {
+            for (auto inter : threads_vec)
+            {
                 if ((!((inter)->at(0).first->operator<(*max))) &&
-                    (!(max->operator<(*(inter)->at(0).first)))) {
+                    (!(max->operator<(*(inter)->at(0).first))))
+                {
                     work.push_back((*inter).at(0));
                     (*inter).erase((*inter).begin());
                 }
@@ -173,36 +204,45 @@ void shuffle_phase(JobContext *jc) {
             pthread_mutex_unlock(&jc->_mutex);
         }
     }
-    for (int i = 0; i < jc->_threads_num; ++i) {
+    for (int i = 0; i < jc->_threads_num; ++i)
+    {
         sem_post(&(jc->_semaphore));
     }
     jc->_isShuffle = false;
 }
 
-void reduce_phase(JobContext *jc) {
-    while (!jc->_works.empty() || jc->_isShuffle) {
+void reduce_phase(JobContext *jc)
+{
+    while (!jc->_works.empty() || jc->_isShuffle)
+    {
         sem_wait(&(jc->_semaphore));
         pthread_mutex_lock(&jc->_mutex);
-        if (jc->_jobState.percentage < 100) {
+        if (jc->_jobState.percentage < 100)
+        {
             jc->_client->reduce(&jc->_works.front(), jc);
             jc->_works.pop();
         }
         pthread_mutex_unlock(&jc->_mutex);
-        if (!jc->_isShuffle) {
+        if (!jc->_isShuffle)
+        {
             jc->_jobState.percentage =
-                    float(jc->_done_works_counter->load()) / float(jc->_works_to_do_counter->load()) * float(100);
+                    float(jc->_done_works_counter->load()) /
+                    float(jc->_works_to_do_counter->load()) * float(100);
         }
 
     }
 }
 
-void *thread_function(void *arg) {
+void *thread_function(void *arg)
+{
     auto tc = (ThreadContext *) arg;
-    if (tc != nullptr) {
+    if (tc != nullptr)
+    {
         JobContext *jc = tc->_jc;
         int old = 0;
         int size = (int) jc->_inputVec->size();
-        while (jc->_atomic_counter->load() < size) {
+        while (jc->_atomic_counter->load() < size)
+        {
             tc->add_inter();
             jc->_jobState.stage = MAP_STAGE;
             old = (*jc->_atomic_counter)++;
@@ -212,7 +252,8 @@ void *thread_function(void *arg) {
         }
         thread_sort_phase(tc);
         jc->_barrier->barrier();
-        if (tc->_id == 0) {
+        if (tc->_id == 0)
+        {
             shuffle_phase(jc);
         }
         reduce_phase(jc);
@@ -234,16 +275,27 @@ threads) and returns a JobHandle.
  */
 JobHandle startMapReduceJob(const MapReduceClient &client,
                             const InputVec &inputVec, OutputVec &outputVec,
-                            int multiThreadLevel) {
-    if (inputVec.empty()) {
+                            int multiThreadLevel)
+{
+    cout << "check if inputVec is empty" << endl;
+    if (inputVec.empty())
+    {
         return nullptr;
     }
+    cout << "new JobContext" << endl;
     auto curJob = new JobContext(&client, &inputVec, &outputVec, multiThreadLevel);
 
-    for (int i = 0; i < multiThreadLevel; ++i) {
+//    cout << "pushing new ThreadContext to curJob->_tcs" << endl;
+    cout << "size of tcs" << curJob->_tcs->size() << endl;
+    for (int i = 0; i < multiThreadLevel; ++i)
+    {
+//        cout << "pushing new ThreadContext to curJob->_tcs" << i << endl;
         curJob->_tcs->at((unsigned long) i) = new ThreadContext(i, curJob);
-        pthread_create(curJob->_threads->at((unsigned long) i), nullptr, thread_function, curJob->_tcs->at(i));
+        cout << i << endl;
+        pthread_create(curJob->_threads->at((unsigned long) i), nullptr, thread_function,
+                       curJob->_tcs->at(i));
     }
+    cout << "done" << endl;
     auto jh = (void *) curJob;
     return jh;
 }
@@ -253,13 +305,17 @@ JobHandle startMapReduceJob(const MapReduceClient &client,
  * it is finished.
  * @param job
  */
-void waitForJob(JobHandle job) {
-    if (job == nullptr) {
+void waitForJob(JobHandle job)
+{
+    if (job == nullptr)
+    {
         return;
     }
     auto jc = (JobContext *) job;
-    if(jc->join_flag) {
-        for (int i = 0; i < jc->_threads_num; ++i) {
+    if (jc->join_flag)
+    {
+        for (int i = 0; i < jc->_threads_num; ++i)
+        {
             pthread_join(*(jc->_threads->at((unsigned long) i)), nullptr);
         }
     }
@@ -273,8 +329,10 @@ void waitForJob(JobHandle job) {
  * @param job
  * @param state
  */
-void getJobState(JobHandle job, JobState *state) {
-    if (job == nullptr) {
+void getJobState(JobHandle job, JobState *state)
+{
+    if (job == nullptr)
+    {
         return;
     }
     auto jc = (JobContext *) job;
@@ -286,8 +344,10 @@ void getJobState(JobHandle job, JobState *state) {
  * before the job finished. After this function is called the job handle will be invalid.
  * @param job
  */
-void closeJobHandle(JobHandle job) {
-    if (job == nullptr) {
+void closeJobHandle(JobHandle job)
+{
+    if (job == nullptr)
+    {
         return;
     }
     auto jc = (JobContext *) job;
