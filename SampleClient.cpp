@@ -70,60 +70,71 @@ public:
 
 int main(int argc, char** argv)
 {
-	CounterClient client;
-	InputVec inputVec;
-	OutputVec outputVec;
-	VString s1("This string is full of characters");
-	VString s2("Multithreading is awesome");
-	VString s3("race conditions are bad");
-	VString s4("I HATE CPP");
-	VString s5("OS is boringgg");
-	VString s6("LAST SEMESTER!!!!!! woohooohooo!!!");
-	VString s7("oh jizzzzz");
-	VString s8("HI! IM MR. MISSIS!");
-	VString s9("SQUANTCH");
-	inputVec.push_back({nullptr, &s1});
-	inputVec.push_back({nullptr, &s2});
-	inputVec.push_back({nullptr, &s3});
-	inputVec.push_back({nullptr, &s4});
-	inputVec.push_back({nullptr, &s5});
-	inputVec.push_back({nullptr, &s6});
-	inputVec.push_back({nullptr, &s7});
-	inputVec.push_back({nullptr, &s8});
-	inputVec.push_back({nullptr, &s9});
-	JobState state;
-    JobState last_state={UNDEFINED_STAGE,0};
-	JobHandle job = startMapReduceJob(client, inputVec, outputVec, 150);
-	getJobState(job, &state);
-
-    /*for (int i = 0; i < outputVec.size(); ++i){
-        std::cout << "{ " << ((const KChar*)outputVec.at(i).first)->c<< " , " << ((const VCount*)outputVec.at(i).second)->count << " }\n";
-    }*/
-	while (state.stage != REDUCE_STAGE || state.percentage != 100.0)
+	for (int _ = 1; _ < 10; _++)
 	{
-        if (last_state.stage != state.stage || last_state.percentage != state.percentage){
-            printf("stage %d, %f%% \n",
-			state.stage, state.percentage);
-        }
-		usleep(100000);
-        last_state = state;
-		getJobState(job, &state);
-	}
+		CounterClient client;
+		InputVec inputVec;
+		OutputVec outputVec;
+		cout << "threads init"<<endl;
+		for (int j = 0; j < (_); j++) {
+			VString s1("This string is full of characters");
+			VString s2("Multithreading is awesome");
+			VString s3("race conditions are bad");
+			VString s4("I HATE CPP");
+			VString s5("OS is boringgg");
+			VString s6("LAST SEMESTER!!!!!! woohooohooo!!!");
+			VString s7("oh jizzzzz");
+			VString s8("HI! IM MR. MISSIS!");
+			VString s9("SQUANTCH");
+			cout << "threads pushing"<<endl;
+			inputVec.push_back({nullptr, &s1});
+			inputVec.push_back({nullptr, &s2});
+			inputVec.push_back({nullptr, &s3});
+			inputVec.push_back({nullptr, &s4});
+			inputVec.push_back({nullptr, &s5});
+			inputVec.push_back({nullptr, &s6});
+			inputVec.push_back({nullptr, &s7});
+			inputVec.push_back({nullptr, &s8});
+			inputVec.push_back({nullptr, &s9});
+		}
+		cout << "num of threads: " << inputVec.size() <<endl;
+		cout << "job state init"<<endl;
+		JobState state;
+	    JobState last_state={UNDEFINED_STAGE,0};
+		cout << "call startMapReduceJob"<<endl;
+	    JobHandle job = startMapReduceJob(client, inputVec, outputVec, 150);
+		cout << "call getJobState"<<endl;
+	    getJobState(job, &state);
 
-	printf("stage %d, %f%% \n",
-			state.stage, state.percentage);
-	printf("Done!\n");
-    waitForJob(job);
+	    /*for (int i = 0; i < outputVec.size(); ++i){
+	        std::cout << "{ " << ((const KChar*)outputVec.at(i).first)->c<< " , " << ((const VCount*)outputVec.at(i).second)->count << " }\n";
+	    }*/
+		while (state.stage != REDUCE_STAGE || state.percentage != 100.0)
+		{
+	        if (last_state.stage != state.stage || last_state.percentage != state.percentage){
+	            printf("stage %d, %f%% \n",
+				state.stage, state.percentage);
+	        }
+			usleep(100000);
+	        last_state = state;
+			getJobState(job, &state);
+		}
 
-	closeJobHandle(job);
+		printf("stage %d, %f%% \n",
+				state.stage, state.percentage);
+		printf("Done!\n");
+	    waitForJob(job);
 
-	for (OutputPair& pair: outputVec) {
-		char c = ((const KChar*)pair.first)->c;
-		int count = ((const VCount*)pair.second)->count;
-		printf("The character %c appeared %d time%s\n",
-			c, count, count > 1 ? "s" : "");
-		delete pair.first;
-		delete pair.second;
+		closeJobHandle(job);
+
+		for (OutputPair& pair: outputVec) {
+			char c = ((const KChar*)pair.first)->c;
+			int count = ((const VCount*)pair.second)->count;
+			printf("The character %c appeared %d time%s\n",
+				c, count, count > 1 ? "s" : "");
+			delete pair.first;
+			delete pair.second;
+		}
 	}
 	return 0;
 }
